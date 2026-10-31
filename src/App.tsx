@@ -1,24 +1,20 @@
 import { useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
+import { validateGraph } from './model/graph.ts';
 import { saveDocument } from './store/storage.ts';
 import { useStore } from './store/useStore.ts';
-import { Charts } from './ui/Charts.tsx';
 import { Editor } from './ui/Editor.tsx';
 import { Palette } from './ui/Palette.tsx';
-import { PlaybackBar, usePlayback } from './ui/PlaybackBar.tsx';
 import { Properties } from './ui/Properties.tsx';
-import { ScenarioPanel } from './ui/ScenarioPanel.tsx';
-import { Summary } from './ui/Summary.tsx';
 import { Toolbar } from './ui/Toolbar.tsx';
-import { useDerived } from './ui/useDerived.ts';
 
 function useAutosave() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribe = useStore.subscribe((s, prev) => {
-      if (s.graph === prev.graph && s.scenario === prev.scenario) return;
+      if (s.graph === prev.graph) return;
       clearTimeout(timer);
-      timer = setTimeout(() => saveDocument({ graph: s.graph, scenario: s.scenario }), 400);
+      timer = setTimeout(() => saveDocument({ graph: s.graph }), 400);
     });
     return () => {
       unsubscribe();
@@ -48,31 +44,42 @@ function useShortcuts() {
   }, []);
 }
 
+function Checks() {
+  const graph = useStore((s) => s.graph);
+  const issues = validateGraph(graph);
+  if (issues.length === 0) return null;
+  return (
+    <section className="card">
+      <h2 className="card-title">Checks</h2>
+      <ul className="m-0 list-none space-y-1 p-0 text-xs">
+        {issues.map((i, k) => (
+          <li key={k} className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">
+            {i.message}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function App() {
-  const derived = useDerived();
-  usePlayback();
   useAutosave();
   useShortcuts();
 
   return (
     <ReactFlowProvider>
-      <div className="grid h-screen grid-cols-[220px_minmax(0,1fr)_260px] grid-rows-[auto_minmax(0,1fr)_auto] font-sans lg:grid-cols-[260px_minmax(0,1fr)_320px]">
+      <div className="grid h-screen grid-cols-[220px_minmax(0,1fr)_260px] grid-rows-[auto_minmax(0,1fr)] font-sans lg:grid-cols-[260px_minmax(0,1fr)_320px]">
         <Toolbar />
         <aside className="flex flex-col gap-2.5 overflow-y-auto border-r border-slate-200 bg-slate-100 p-2.5">
           <Palette />
-          <ScenarioPanel />
         </aside>
         <main className="relative min-h-0 min-w-0 [&_.react-flow]:bg-slate-50">
-          <Editor derived={derived} />
+          <Editor />
         </main>
         <aside className="flex flex-col gap-2.5 overflow-y-auto border-l border-slate-200 bg-slate-100 p-2.5">
-          <Properties derived={derived} />
-          <Summary derived={derived} />
+          <Properties />
+          <Checks />
         </aside>
-        <footer className="col-span-full flex max-h-[44vh] min-h-0 flex-col border-t border-slate-200 bg-white">
-          <PlaybackBar />
-          <Charts />
-        </footer>
       </div>
     </ReactFlowProvider>
   );
