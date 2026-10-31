@@ -30,7 +30,7 @@ export function Palette() {
           );
         })}
       </div>
-      <p className="hint">Connect nodes by dragging from a right handle to a left handle.</p>
+      <p className="hint">Connect components by dragging from a bottom handle to a top handle.</p>
     </section>
   );
 }

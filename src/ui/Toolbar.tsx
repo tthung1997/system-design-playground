@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createNode, DEFAULT_SCENARIO } from '../model/defaults.ts';
+import { createNode } from '../model/defaults.ts';
 import { parseDocument, serializeDocument } from '../model/document.ts';
 import { PRESETS } from '../model/presets.ts';
 import { useStore } from '../store/useStore.ts';
@@ -22,8 +22,8 @@ export function Toolbar() {
   }, [notice, setNotice]);
 
   const exportJson = () => {
-    const { graph, scenario } = useStore.getState();
-    const blob = new Blob([serializeDocument({ graph, scenario })], { type: 'application/json' });
+    const { graph } = useStore.getState();
+    const blob = new Blob([serializeDocument({ graph })], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -75,12 +75,7 @@ export function Toolbar() {
         <button
           type="button"
           className="btn"
-          onClick={() =>
-            loadDocument({
-              graph: { nodes: [createNode('client', 'client-1', { x: 0, y: 120 }, {}, 'Users')], edges: [] },
-              scenario: { ...DEFAULT_SCENARIO },
-            })
-          }
+          onClick={() => loadDocument({ graph: { nodes: [createNode('client', 'client-1', { x: 0, y: 120 }, 'Users')], edges: [] } })}
         >
           New
         </button>

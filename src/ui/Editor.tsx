@@ -1,26 +1,20 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { DragEvent } from 'react';
-import {
-  Background,
-  Controls,
-  MarkerType,
-  ReactFlow,
-  useReactFlow,
-} from '@xyflow/react';
+import { Background, Controls, MarkerType, ReactFlow, useReactFlow } from '@xyflow/react';
 import type { Connection, Edge, EdgeChange, NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { flowingEdgeIds, validateGraph } from '../model/graph.ts';
 import type { NodeKind, Position } from '../model/types.ts';
 import { useStore } from '../store/useStore.ts';
-import { fmtNum, fmtPct } from './format.ts';
 import { NodeCard } from './NodeCard.tsx';
 import type { SdFlowNode } from './NodeCard.tsx';
-import type { Derived } from './useDerived.ts';
 
 export const DRAG_MIME = 'application/x-sdp-node-kind';
 
 const nodeTypes = { sd: NodeCard };
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 80;
+const EDGE_COLOR = '#64748b';
 
 /** Adds a node at the center of the visible canvas (used by palette clicks). */
 export function useAddNodeAtCenter() {
@@ -40,13 +34,12 @@ export function useAddNodeAtCenter() {
   );
 }
 
-export function Editor({ derived }: { derived: Derived }) {
+export function Editor() {
   const graph = useStore((s) => s.graph);
   const selectedNodeIds = useStore((s) => s.selectedNodeIds);
   const selectedEdgeIds = useStore((s) => s.selectedEdgeIds);
   const docVersion = useStore((s) => s.docVersion);
   const { screenToFlowPosition, fitView } = useReactFlow();
-  const { view, issues } = derived;
 
   useEffect(() => {
     if (docVersion === 0) return;
@@ -55,60 +48,31 @@ export function Editor({ derived }: { derived: Derived }) {
   }, [docVersion, fitView]);
 
   const nodes = useMemo<SdFlowNode[]>(() => {
-    const issueNodes = new Set(issues.filter((i) => i.nodeId).map((i) => i.nodeId));
+    const issueNodes = new Set(validateGraph(graph).filter((i) => i.nodeId).map((i) => i.nodeId));
     const selected = new Set(selectedNodeIds);
-    return graph.nodes.map((node) => {
-      const metrics = view?.nodes[node.id];
-      return {
-        id: node.id,
-        type: 'sd',
-        position: node.position,
-        selected: selected.has(node.id),
-        data: {
-          node,
-          metrics,
-          bottleneck: !!metrics && view?.bottleneckId === node.id && metrics.utilization >= 0.8,
-          hasIssue: issueNodes.has(node.id),
-        },
-      };
-    });
-  }, [graph.nodes, selectedNodeIds, view, issues]);
+    return graph.nodes.map((node) => ({
+      id: node.id,
+      type: 'sd',
+      position: node.position,
+      selected: selected.has(node.id),
+      data: { node, hasIssue: issueNodes.has(node.id) },
+    }));
+  }, [graph, selectedNodeIds]);
 
+  // Traffic moves along every connection that is fed by a client.
   const edges = useMemo<Edge[]>(() => {
     const selected = new Set(selectedEdgeIds);
-    const outCount: Record<string, number> = {};
-    const outTotal: Record<string, number> = {};
-    for (const e of graph.edges) {
-      outCount[e.source] = (outCount[e.source] ?? 0) + 1;
-      outTotal[e.source] = (outTotal[e.source] ?? 0) + e.ratio;
-    }
-    const maxFlow = view ? Math.max(1e-9, ...Object.values(view.edges)) : 1;
-    return graph.edges.map((e) => {
-      const flow = view?.edges[e.id] ?? 0;
-      const target = view?.nodes[e.target];
-      const hot = !!target && (target.dropped > 1e-6 || target.utilization >= 1);
-      const warm = !!target && target.utilization >= 0.85;
-      const color = hot ? '#dc2626' : warm ? '#ea580c' : '#64748b';
-      const parts: string[] = [];
-      if ((outCount[e.source] ?? 0) > 1) {
-        const total = outTotal[e.source] ?? 0;
-        parts.push(fmtPct(total > 0 ? e.ratio / total : 1 / outCount[e.source]!, 0));
-      }
-      if (view && flow > 1e-6) parts.push(`${fmtNum(flow)}/s`);
-      return {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        selected: selected.has(e.id),
-        label: parts.join(' · ') || undefined,
-        animated: flow > 1e-6,
-        markerEnd: { type: MarkerType.ArrowClosed, color },
-        style: { stroke: color, strokeWidth: 1.5 + 4 * Math.min(1, flow / maxFlow) },
-        labelStyle: { fontSize: 11, fill: '#334155' },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
-      };
-    });
-  }, [graph.edges, selectedEdgeIds, view]);
+    const flowing = flowingEdgeIds(graph);
+    return graph.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      selected: selected.has(e.id),
+      animated: flowing.has(e.id),
+      markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
+      style: { stroke: EDGE_COLOR, strokeWidth: 2 },
+    }));
+  }, [graph, selectedEdgeIds]);
 
   const onNodesChange = useCallback((changes: NodeChange<SdFlowNode>[]) => {
     const s = useStore.getState();

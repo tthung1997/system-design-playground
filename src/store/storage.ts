@@ -18,7 +18,7 @@ export function loadSavedDocument(): PlaygroundDocument | null {
   return parsed.ok ? parsed.doc : null;
 }
 
-export function saveDocument(doc: Pick<PlaygroundDocument, 'graph' | 'scenario'>): void {
+export function saveDocument(doc: Pick<PlaygroundDocument, 'graph'>): void {
   try {
     storage()?.setItem(KEY, serializeDocument(doc));
   } catch {
