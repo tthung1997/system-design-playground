@@ -6,6 +6,7 @@ import { useStore } from './store/useStore.ts';
 import { Editor } from './ui/Editor.tsx';
 import { Palette } from './ui/Palette.tsx';
 import { Properties } from './ui/Properties.tsx';
+import { AlertIcon } from './ui/icons.tsx';
 import { Toolbar } from './ui/Toolbar.tsx';
 
 function useAutosave() {
@@ -74,9 +75,10 @@ function Checks() {
   return (
     <section className="card">
       <h2 className="card-title">Checks</h2>
-      <ul className="m-0 list-none space-y-1 p-0 text-xs">
+      <ul className="m-0 list-none space-y-1.5 p-0">
         {issues.map((i, k) => (
-          <li key={k} className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <li key={k} className="warn">
+            <AlertIcon size={14} className="mt-px shrink-0" />
             {i.message}
           </li>
         ))}
@@ -94,13 +96,13 @@ export default function App() {
     <ReactFlowProvider>
       <div className="grid h-screen grid-cols-[220px_minmax(0,1fr)_260px] grid-rows-[auto_minmax(0,1fr)] font-sans lg:grid-cols-[260px_minmax(0,1fr)_320px]">
         <Toolbar isDark={isDark} onToggleTheme={toggleTheme} />
-        <aside className="flex flex-col gap-2.5 overflow-y-auto border-r border-slate-200 bg-slate-100 p-2.5 dark:border-slate-700 dark:bg-slate-800">
+        <aside className="flex flex-col gap-3 overflow-y-auto border-r border-line bg-panel p-4">
           <Palette />
         </aside>
         <main className="relative min-h-0 min-w-0">
           <Editor />
         </main>
-        <aside className="flex flex-col gap-2.5 overflow-y-auto border-l border-slate-200 bg-slate-100 p-2.5 dark:border-slate-700 dark:bg-slate-800">
+        <aside className="flex flex-col gap-3 overflow-y-auto border-l border-line bg-panel p-4">
           <Properties />
           <Checks />
         </aside>

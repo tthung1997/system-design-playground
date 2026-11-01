@@ -3,6 +3,7 @@ import { createNode } from '../model/defaults.ts';
 import { parseDocument, serializeDocument } from '../model/document.ts';
 import { PRESETS } from '../model/presets.ts';
 import { useStore } from '../store/useStore.ts';
+import { CloseIcon, DownloadIcon, FileIcon, Logo, MoonIcon, RedoIcon, SunIcon, UndoIcon, UploadIcon } from './icons.tsx';
 
 interface ToolbarProps {
   isDark: boolean;
@@ -47,57 +48,70 @@ export function Toolbar({ isDark, onToggleTheme }: ToolbarProps) {
     }
   };
 
+  const themeLabel = `Switch to ${isDark ? 'light' : 'dark'} mode`;
+
   return (
-    <header className="col-span-full flex flex-wrap items-center gap-4 border-b border-slate-200 bg-white px-3.5 py-2 dark:border-slate-700 dark:bg-slate-900">
-      <h1 className="mr-2 text-base font-semibold">System Design Playground</h1>
+    <header className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-panel px-4 py-2.5">
+      <div className="flex items-center gap-2.5 pr-1">
+        <Logo />
+        <h1 className="m-0 leading-tight">
+          <span className="block text-[15px] font-bold tracking-tight">System Design</span>
+          <span className="block text-[10px] font-medium tracking-[0.22em] text-muted uppercase">Playground</span>
+        </h1>
+      </div>
+
+      <span className="h-6 w-px bg-line" aria-hidden />
+
       <div className="flex items-center gap-1.5">
-        <button type="button" className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          ↶ Undo
+        <button type="button" className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <UndoIcon size={16} />
+          <span className="hidden xl:inline">Undo</span>
         </button>
-        <button type="button" className="btn" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-          ↷ Redo
+        <button type="button" className="btn" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <RedoIcon size={16} />
+          <span className="hidden xl:inline">Redo</span>
         </button>
       </div>
+
+      <span className="h-6 w-px bg-line" aria-hidden />
+
       <div className="flex items-center gap-1.5">
-        <label className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-          Presets
-          <select
-            className="input"
-            value=""
-            aria-label="Load a preset"
-            onChange={(e) => {
-              if (e.target.value) loadPreset(e.target.value);
-            }}
-          >
-            <option value="">Load a preset…</option>
-            {PRESETS.map((p) => (
-              <option key={p.id} value={p.id} title={p.description}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          className="input py-1.5 pr-7 text-[13px] font-medium"
+          value=""
+          aria-label="Load a preset"
+          onChange={(e) => {
+            if (e.target.value) loadPreset(e.target.value);
+          }}
+        >
+          <option value="">Load a preset…</option>
+          {PRESETS.map((p) => (
+            <option key={p.id} value={p.id} title={p.description}>
+              {p.name}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           className="btn"
           onClick={() => loadDocument({ graph: { nodes: [createNode('client', 'client-1', { x: 0, y: 120 }, 'Users')], edges: [] } })}
         >
+          <FileIcon size={16} />
           New
         </button>
-        <button type="button" className="btn" onClick={exportJson}>
-          Export
-        </button>
+      </div>
+
+      <div className="ml-auto flex items-center gap-1.5">
         <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
+          <UploadIcon size={16} />
           Import
         </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={onToggleTheme}
-          aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-          title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-        >
-          {isDark ? '☀ Light mode' : '☾ Dark mode'}
+        <button type="button" className="btn btn-primary" onClick={exportJson}>
+          <DownloadIcon size={16} />
+          Export
+        </button>
+        <button type="button" className="btn btn-icon" onClick={onToggleTheme} aria-label={themeLabel} title={themeLabel}>
+          {isDark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
         </button>
         <input
           ref={fileRef}
@@ -111,11 +125,16 @@ export function Toolbar({ isDark, onToggleTheme }: ToolbarProps) {
           }}
         />
       </div>
+
       {notice && (
-        <div className="ml-auto flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200" role="status">
+        <div
+          className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-panel px-4 py-2.5 text-[13px] shadow-(--elevation)"
+          role="status"
+        >
+          <span className="size-2 shrink-0 rounded-full bg-accent" aria-hidden />
           {notice}
-          <button type="button" className="px-0.5 text-slate-500 dark:text-slate-400" onClick={() => setNotice(null)} aria-label="Dismiss">
-            ✕
+          <button type="button" className="rounded p-0.5 text-muted hover:text-ink" onClick={() => setNotice(null)} aria-label="Dismiss">
+            <CloseIcon size={14} />
           </button>
         </div>
       )}

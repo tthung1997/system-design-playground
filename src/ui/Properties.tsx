@@ -1,6 +1,7 @@
 import { NODE_SPECS } from '../model/defaults.ts';
 import { validateGraph } from '../model/graph.ts';
 import { useStore } from '../store/useStore.ts';
+import { AlertIcon, CloseIcon, CursorIcon, KindTile, PlusIcon, TrashIcon } from './icons.tsx';
 
 export function Properties() {
   const graph = useStore((s) => s.graph);
@@ -19,7 +20,10 @@ export function Properties() {
     return (
       <section className="card">
         <h2 className="card-title">Properties</h2>
-        <p className="hint">Select a component or connection to edit it.</p>
+        <div className="flex flex-col items-center gap-2 py-4 text-center text-muted">
+          <CursorIcon size={22} />
+          <p className="m-0 text-xs leading-relaxed">Select a component or connection to edit it.</p>
+        </div>
       </section>
     );
   }
@@ -28,7 +32,7 @@ export function Properties() {
     return (
       <section className="card">
         <h2 className="card-title">Properties</h2>
-        <p>
+        <p className="m-0">
           {selectedNodeIds.length} component(s) and {selectedEdgeIds.length} connection(s) selected.
         </p>
         <button
@@ -39,6 +43,7 @@ export function Properties() {
             removeEdges(selectedEdgeIds);
           }}
         >
+          <TrashIcon size={15} />
           Delete selection
         </button>
       </section>
@@ -52,10 +57,11 @@ export function Properties() {
     return (
       <section className="card">
         <h2 className="card-title">Connection</h2>
-        <p>
+        <p className="m-0">
           {src?.name} → {dst?.name}
         </p>
         <button type="button" className="btn btn-danger" onClick={() => removeEdges([edge.id])}>
+          <TrashIcon size={15} />
           Delete connection
         </button>
       </section>
@@ -69,22 +75,25 @@ export function Properties() {
 
   return (
     <section className="card">
-      <h2 className="card-title">
-        {spec.icon} {spec.label}
-      </h2>
-      <p className="hint">{spec.description}</p>
-      <div className="my-1.5 grid grid-cols-[auto_1fr] items-center gap-2">
-        <label htmlFor="node-name" className="text-slate-700 dark:text-slate-300">
+      <div className="mb-3 flex items-center gap-2.5">
+        <KindTile kind={node.kind} size={32} />
+        <div className="min-w-0">
+          <h2 className="m-0 text-sm font-semibold">{spec.label}</h2>
+          <p className="m-0 text-xs text-muted">{spec.description}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+        <label htmlFor="node-name" className="text-xs font-medium text-muted">
           Name
         </label>
         <input id="node-name" type="text" className="input w-full" value={node.name} onChange={(e) => updateNode(node.id, { name: e.target.value })} />
       </div>
 
-      <h3 className="mt-3 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">Custom properties</h3>
+      <h3 className="mt-4 mb-1.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">Custom properties</h3>
       {node.properties.length === 0 && <p className="hint">None yet. Add whatever you want to track, such as region, owner or notes.</p>}
       <ul className="m-0 list-none space-y-1.5 p-0">
         {node.properties.map((p, i) => (
-          <li key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
+          <li key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
             <input
               type="text"
               className="input"
@@ -95,7 +104,7 @@ export function Properties() {
             />
             <input
               type="text"
-              className="input"
+              className="input font-mono text-[13px]"
               placeholder="Value"
               aria-label={`Property ${i + 1} value`}
               value={p.value}
@@ -103,23 +112,25 @@ export function Properties() {
             />
             <button
               type="button"
-              className="px-1 text-slate-500 hover:text-danger dark:text-slate-400"
+              className="rounded-md p-1.5 text-muted hover:text-danger"
               aria-label={`Remove property ${i + 1}`}
               onClick={() => removeProperty(node.id, i)}
             >
-              ✕
+              <CloseIcon size={14} />
             </button>
           </li>
         ))}
       </ul>
-      <button type="button" className="btn mt-2" onClick={() => addProperty(node.id)}>
-        + Add property
+      <button type="button" className="btn mt-2.5" onClick={() => addProperty(node.id)}>
+        <PlusIcon size={15} />
+        Add property
       </button>
 
       {nodeIssues.length > 0 && (
-        <ul className="my-2 list-none space-y-1 p-0 text-xs">
+        <ul className="mt-3 mb-0 list-none space-y-1 p-0">
           {nodeIssues.map((i, k) => (
-            <li key={k} className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <li key={k} className="warn">
+              <AlertIcon size={14} className="mt-px shrink-0" />
               {i.message}
             </li>
           ))}
@@ -128,6 +139,7 @@ export function Properties() {
 
       <div>
         <button type="button" className="btn btn-danger" onClick={() => removeNodes([node.id])}>
+          <TrashIcon size={15} />
           Delete component
         </button>
       </div>

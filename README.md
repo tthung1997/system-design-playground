@@ -19,6 +19,7 @@ npm run build      # production build into dist/
 - **Describe components your way**: components start with just a name. Add any custom properties (name/value pairs such as region, owner or notes) from the Properties panel; the first few show on the component.
 - **Spot loose ends**: the Checks panel warns about a missing Clients component or components no client can reach.
 - **Save your work**: undo/redo (Ctrl+Z / Ctrl+Shift+Z), autosave to `localStorage`, JSON export/import, and presets. Files from the earlier numeric version still load; their numbers are ignored.
+- **Look and feel**: a blueprint-style light/dark theme, color-coded component types, and a minimap for larger diagrams.
 
 ## Architecture
 
