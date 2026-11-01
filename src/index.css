@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-accent: #2563eb;
   --color-danger: #dc2626;
@@ -12,9 +14,25 @@
   #root {
     height: 100%;
     margin: 0;
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--app-bg);
+    color: var(--app-text);
     font-size: 14px;
+  }
+  html {
+    color-scheme: light;
+    --app-bg: #f1f5f9;
+    --app-text: #0f172a;
+    --canvas-bg: #f8fafc;
+    --canvas-dot: #cbd5e1;
+    --edge-color: #64748b;
+  }
+  html.dark {
+    color-scheme: dark;
+    --app-bg: #0f172a;
+    --app-text: #e2e8f0;
+    --canvas-bg: #0f172a;
+    --canvas-dot: #475569;
+    --edge-color: #94a3b8;
   }
   button:not(:disabled),
   select {
@@ -25,24 +43,43 @@
 /* Shared form primitives; layout and spacing live in the components as utilities. */
 @layer components {
   .btn {
-    @apply rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:not-disabled:border-slate-400 hover:not-disabled:bg-slate-50 disabled:cursor-default disabled:opacity-50;
+    @apply rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:not-disabled:border-slate-400 hover:not-disabled:bg-slate-50 disabled:cursor-default disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:not-disabled:border-slate-500 dark:hover:not-disabled:bg-slate-700;
   }
   .btn-primary {
     @apply border-accent bg-accent text-white hover:not-disabled:border-blue-700 hover:not-disabled:bg-blue-700;
   }
   .btn-danger {
-    @apply mt-2 border-red-200 text-danger;
+    @apply mt-2 border-red-200 text-danger dark:border-red-900;
   }
   .input {
-    @apply min-w-0 rounded-md border border-slate-300 bg-white px-1.5 py-1 aria-invalid:border-danger aria-invalid:outline-danger;
+    @apply min-w-0 rounded-md border border-slate-300 bg-white px-1.5 py-1 aria-invalid:border-danger aria-invalid:outline-danger dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100;
   }
   .card {
-    @apply rounded-lg border border-slate-200 bg-white px-3 py-2.5;
+    @apply rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900;
   }
   .card-title {
-    @apply mb-2 text-[13px] font-semibold tracking-wide text-slate-500 uppercase;
+    @apply mb-2 text-[13px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400;
   }
   .hint {
-    @apply my-1.5 text-xs text-slate-500;
+    @apply my-1.5 text-xs text-slate-500 dark:text-slate-400;
   }
+}
+
+.dark .react-flow {
+  background-color: var(--canvas-bg);
+}
+
+.dark .react-flow__controls {
+  border-color: #475569;
+  background-color: #1e293b;
+}
+
+.dark .react-flow__controls-button {
+  border-color: #475569;
+  background-color: #1e293b;
+  fill: #e2e8f0;
+}
+
+.dark .react-flow__controls-button:hover {
+  background-color: #334155;
 }

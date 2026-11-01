@@ -14,7 +14,7 @@ export const DRAG_MIME = 'application/x-sdp-node-kind';
 const nodeTypes = { sd: NodeCard };
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 80;
-const EDGE_COLOR = '#64748b';
+const EDGE_COLOR = 'var(--edge-color)';
 
 /** Adds a node at the center of the visible canvas (used by palette clicks). */
 export function useAddNodeAtCenter() {
@@ -148,7 +148,7 @@ export function Editor() {
       maxZoom={1.5}
       proOptions={{ hideAttribution: false }}
     >
-      <Background gap={20} />
+      <Background gap={20} color="var(--canvas-dot)" />
       <Controls showInteractive={false} />
     </ReactFlow>
   );

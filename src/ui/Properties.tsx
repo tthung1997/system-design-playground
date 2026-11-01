@@ -74,13 +74,13 @@ export function Properties() {
       </h2>
       <p className="hint">{spec.description}</p>
       <div className="my-1.5 grid grid-cols-[auto_1fr] items-center gap-2">
-        <label htmlFor="node-name" className="text-slate-700">
+        <label htmlFor="node-name" className="text-slate-700 dark:text-slate-300">
           Name
         </label>
         <input id="node-name" type="text" className="input w-full" value={node.name} onChange={(e) => updateNode(node.id, { name: e.target.value })} />
       </div>
 
-      <h3 className="mt-3 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Custom properties</h3>
+      <h3 className="mt-3 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">Custom properties</h3>
       {node.properties.length === 0 && <p className="hint">None yet. Add whatever you want to track, such as region, owner or notes.</p>}
       <ul className="m-0 list-none space-y-1.5 p-0">
         {node.properties.map((p, i) => (
@@ -103,7 +103,7 @@ export function Properties() {
             />
             <button
               type="button"
-              className="px-1 text-slate-500 hover:text-danger"
+              className="px-1 text-slate-500 hover:text-danger dark:text-slate-400"
               aria-label={`Remove property ${i + 1}`}
               onClick={() => removeProperty(node.id, i)}
             >
@@ -119,7 +119,7 @@ export function Properties() {
       {nodeIssues.length > 0 && (
         <ul className="my-2 list-none space-y-1 p-0 text-xs">
           {nodeIssues.map((i, k) => (
-            <li key={k} className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">
+            <li key={k} className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               {i.message}
             </li>
           ))}
