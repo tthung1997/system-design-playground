@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { DragEvent } from 'react';
-import { Background, Controls, MarkerType, ReactFlow, useReactFlow } from '@xyflow/react';
+import { Background, BackgroundVariant, Controls, MarkerType, MiniMap, ReactFlow, useReactFlow } from '@xyflow/react';
 import type { Connection, Edge, EdgeChange, NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { flowingEdgeIds, validateGraph } from '../model/graph.ts';
 import type { NodeKind, Position } from '../model/types.ts';
 import { useStore } from '../store/useStore.ts';
 import { NodeCard } from './NodeCard.tsx';
-import type { SdFlowNode } from './NodeCard.tsx';
+import type { SdFlowNode, SdNodeData } from './NodeCard.tsx';
 
 export const DRAG_MIME = 'application/x-sdp-node-kind';
 
@@ -15,6 +15,7 @@ const nodeTypes = { sd: NodeCard };
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 80;
 const EDGE_COLOR = 'var(--edge-color)';
+const FLOW_COLOR = 'var(--edge-flow)';
 
 /** Adds a node at the center of the visible canvas (used by palette clicks). */
 export function useAddNodeAtCenter() {
@@ -54,6 +55,8 @@ export function Editor() {
       id: node.id,
       type: 'sd',
       position: node.position,
+      initialWidth: NODE_WIDTH,
+      initialHeight: NODE_HEIGHT,
       selected: selected.has(node.id),
       data: { node, hasIssue: issueNodes.has(node.id) },
     }));
@@ -69,8 +72,8 @@ export function Editor() {
       target: e.target,
       selected: selected.has(e.id),
       animated: flowing.has(e.id),
-      markerEnd: { type: MarkerType.ArrowClosed, color: EDGE_COLOR },
-      style: { stroke: EDGE_COLOR, strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: flowing.has(e.id) ? FLOW_COLOR : EDGE_COLOR },
+      style: { strokeWidth: 2 },
     }));
   }, [graph, selectedEdgeIds]);
 
@@ -148,8 +151,9 @@ export function Editor() {
       maxZoom={1.5}
       proOptions={{ hideAttribution: false }}
     >
-      <Background gap={20} color="var(--canvas-dot)" />
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="var(--canvas-dot)" />
       <Controls showInteractive={false} />
+      <MiniMap pannable zoomable ariaLabel="Diagram overview" nodeClassName={(n) => `mm-${(n.data as SdNodeData).node.kind}`} nodeBorderRadius={3} />
     </ReactFlow>
   );
 }

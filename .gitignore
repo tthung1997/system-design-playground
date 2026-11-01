@@ -2,3 +2,5 @@ node_modules
 dist
 *.tsbuildinfo
 .vite
+.impeccable
+.playwright-mcp
