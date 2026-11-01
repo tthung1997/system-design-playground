@@ -170,9 +170,3 @@
 .react-flow__edge.animated .react-flow__edge-path {
   stroke: var(--edge-flow);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .react-flow__edge.animated .react-flow__edge-path {
-    animation: none;
-  }
-}
