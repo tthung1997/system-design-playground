@@ -4,7 +4,12 @@ import { parseDocument, serializeDocument } from '../model/document.ts';
 import { PRESETS } from '../model/presets.ts';
 import { useStore } from '../store/useStore.ts';
 
-export function Toolbar() {
+interface ToolbarProps {
+  isDark: boolean;
+  onToggleTheme: () => void;
+}
+
+export function Toolbar({ isDark, onToggleTheme }: ToolbarProps) {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const notice = useStore((s) => s.notice);
@@ -43,7 +48,7 @@ export function Toolbar() {
   };
 
   return (
-    <header className="col-span-full flex flex-wrap items-center gap-4 border-b border-slate-200 bg-white px-3.5 py-2">
+    <header className="col-span-full flex flex-wrap items-center gap-4 border-b border-slate-200 bg-white px-3.5 py-2 dark:border-slate-700 dark:bg-slate-900">
       <h1 className="mr-2 text-base font-semibold">System Design Playground</h1>
       <div className="flex items-center gap-1.5">
         <button type="button" className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
@@ -54,7 +59,7 @@ export function Toolbar() {
         </button>
       </div>
       <div className="flex items-center gap-1.5">
-        <label className="flex items-center gap-1.5 text-slate-500">
+        <label className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
           Presets
           <select
             className="input"
@@ -85,6 +90,15 @@ export function Toolbar() {
         <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
           Import
         </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={onToggleTheme}
+          aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+        >
+          {isDark ? '☀ Light mode' : '☾ Dark mode'}
+        </button>
         <input
           ref={fileRef}
           type="file"
@@ -98,9 +112,9 @@ export function Toolbar() {
         />
       </div>
       {notice && (
-        <div className="ml-auto flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1" role="status">
+        <div className="ml-auto flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200" role="status">
           {notice}
-          <button type="button" className="px-0.5 text-slate-500" onClick={() => setNotice(null)} aria-label="Dismiss">
+          <button type="button" className="px-0.5 text-slate-500 dark:text-slate-400" onClick={() => setNotice(null)} aria-label="Dismiss">
             ✕
           </button>
         </div>
