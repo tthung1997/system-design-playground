@@ -5,11 +5,20 @@ import type { Connection, Edge, EdgeChange, NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { flowingEdgeIds, validateGraph } from '../model/graph.ts';
 import type { NodeKind, Position } from '../model/types.ts';
+import type { NodeDiagnostics } from '../simulation/simulate.ts';
 import { useStore } from '../store/useStore.ts';
+import { fmtRps } from './format.ts';
 import { NodeCard } from './NodeCard.tsx';
 import type { SdFlowNode, SdNodeData } from './NodeCard.tsx';
 
 export const DRAG_MIME = 'application/x-sdp-node-kind';
+
+/** Simulation results drawn on top of the diagram. */
+export interface Overlay {
+  nodes: Record<string, NodeDiagnostics>;
+  edges: Record<string, number>;
+  bottleneckId: string | null;
+}
 
 const nodeTypes = { sd: NodeCard };
 const NODE_WIDTH = 190;
@@ -35,7 +44,7 @@ export function useAddNodeAtCenter() {
   );
 }
 
-export function Editor() {
+export function Editor({ overlay }: { overlay?: Overlay | null }) {
   const graph = useStore((s) => s.graph);
   const selectedNodeIds = useStore((s) => s.selectedNodeIds);
   const selectedEdgeIds = useStore((s) => s.selectedEdgeIds);
@@ -58,24 +67,36 @@ export function Editor() {
       initialWidth: NODE_WIDTH,
       initialHeight: NODE_HEIGHT,
       selected: selected.has(node.id),
-      data: { node, hasIssue: issueNodes.has(node.id) },
+      data: { node, hasIssue: issueNodes.has(node.id), diag: overlay?.nodes[node.id], bottleneck: overlay?.bottleneckId === node.id },
     }));
-  }, [graph, selectedNodeIds]);
+  }, [graph, selectedNodeIds, overlay]);
 
   // Traffic moves along every connection that is fed by a client.
   const edges = useMemo<Edge[]>(() => {
     const selected = new Set(selectedEdgeIds);
     const flowing = flowingEdgeIds(graph);
-    return graph.edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      selected: selected.has(e.id),
-      animated: flowing.has(e.id),
-      markerEnd: { type: MarkerType.ArrowClosed, color: flowing.has(e.id) ? FLOW_COLOR : EDGE_COLOR },
-      style: { strokeWidth: 2 },
-    }));
-  }, [graph, selectedEdgeIds]);
+    return graph.edges.map((e) => {
+      const rps = overlay?.edges[e.id];
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        selected: selected.has(e.id),
+        animated: flowing.has(e.id),
+        markerEnd: { type: MarkerType.ArrowClosed, color: flowing.has(e.id) ? FLOW_COLOR : EDGE_COLOR },
+        style: { strokeWidth: 2 },
+        ...(rps !== undefined && rps > 0
+          ? {
+              label: `${fmtRps(rps)} rps`,
+              labelStyle: { fontSize: 11, fill: 'var(--ink)' },
+              labelBgStyle: { fill: 'var(--panel)', fillOpacity: 0.9 },
+              labelBgPadding: [4, 2] as [number, number],
+              labelBgBorderRadius: 4,
+            }
+          : {}),
+      };
+    });
+  }, [graph, selectedEdgeIds, overlay]);
 
   const onNodesChange = useCallback((changes: NodeChange<SdFlowNode>[]) => {
     const s = useStore.getState();

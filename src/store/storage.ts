@@ -3,7 +3,7 @@ import type { PlaygroundDocument } from '../model/document.ts';
 
 const KEY = 'system-design-playground:document';
 
-function storage(): Storage | null {
+export function storage(): Storage | null {
   try {
     return typeof localStorage === 'undefined' ? null : localStorage;
   } catch {
@@ -18,10 +18,14 @@ export function loadSavedDocument(): PlaygroundDocument | null {
   return parsed.ok ? parsed.doc : null;
 }
 
-export function saveDocument(doc: Pick<PlaygroundDocument, 'graph'>): void {
+/** Returns an error message when the document could not be saved. */
+export function saveDocument(doc: Pick<PlaygroundDocument, 'graph' | 'workload'>): string | null {
+  const store = storage();
+  if (!store) return 'Browser storage is unavailable, so changes will not be saved.';
   try {
-    storage()?.setItem(KEY, serializeDocument(doc));
+    store.setItem(KEY, serializeDocument(doc));
+    return null;
   } catch {
-    // Storage full or unavailable; autosave is best effort.
+    return 'Could not save your diagram (browser storage is full or blocked). Export it to keep a copy.';
   }
 }

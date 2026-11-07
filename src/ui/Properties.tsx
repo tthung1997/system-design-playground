@@ -1,7 +1,61 @@
-import { NODE_SPECS } from '../model/defaults.ts';
+import { CONFIG_FIELDS, MAX_REPLICAS, NODE_SPECS, SIZE_TIERS } from '../model/defaults.ts';
 import { validateGraph } from '../model/graph.ts';
+import type { GraphNode, SizeTier } from '../model/types.ts';
+import { describeConfig, resolveConfig } from '../simulation/catalog.ts';
 import { useStore } from '../store/useStore.ts';
 import { AlertIcon, CloseIcon, CursorIcon, KindTile, PlusIcon, TrashIcon } from './icons.tsx';
+
+/** Replicas and size drive the simulation; the line below shows what the current choice provides. */
+function SimulationSettings({ node }: { node: GraphNode }) {
+  const updateConfig = useStore((s) => s.updateConfig);
+  if (node.kind === 'client') return null;
+  const fields = CONFIG_FIELDS[node.kind];
+  const cfg = resolveConfig(node);
+  return (
+    <>
+      <h3 className="mt-4 mb-1.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">Simulation</h3>
+      {(fields.size || fields.replicas) && (
+        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+          {fields.size && (
+            <>
+              <label htmlFor="node-size" className="text-xs font-medium text-muted">
+                Size
+              </label>
+              <select id="node-size" className="input" value={cfg.size} onChange={(e) => updateConfig(node.id, { size: e.target.value as SizeTier })}>
+                {SIZE_TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {t[0]!.toUpperCase() + t.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          {fields.replicas && (
+            <>
+              <label htmlFor="node-replicas" className="text-xs font-medium text-muted">
+                {node.kind === 'database' ? 'Nodes' : 'Replicas'}
+              </label>
+              <input
+                id="node-replicas"
+                type="number"
+                min={1}
+                max={MAX_REPLICAS}
+                step={1}
+                className="input w-full font-mono"
+                value={cfg.replicas}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (e.target.value !== '' && Number.isFinite(n)) updateConfig(node.id, { replicas: n });
+                }}
+              />
+            </>
+          )}
+        </div>
+      )}
+      <p className="hint">{describeConfig(node)}</p>
+    </>
+  );
+}
 
 export function Properties() {
   const graph = useStore((s) => s.graph);
@@ -88,6 +142,8 @@ export function Properties() {
         </label>
         <input id="node-name" type="text" className="input w-full" value={node.name} onChange={(e) => updateNode(node.id, { name: e.target.value })} />
       </div>
+
+      <SimulationSettings node={node} />
 
       <h3 className="mt-4 mb-1.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">Custom properties</h3>
       {node.properties.length === 0 && <p className="hint">None yet. Add whatever you want to track, such as region, owner or notes.</p>}

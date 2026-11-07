@@ -1,31 +1,38 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { validateGraph } from './model/graph.ts';
-import { saveDocument } from './store/storage.ts';
+import { useRoute } from './app/route.ts';
+import type { Route } from './app/route.ts';
+import { ChallengePage, ChallengesPage } from './pages/ChallengesPage.tsx';
+import { LessonPage, LessonsPage } from './pages/LessonsPage.tsx';
+import { PlaygroundPage } from './pages/PlaygroundPage.tsx';
+import { useLearning } from './store/learningStore.ts';
 import { useStore } from './store/useStore.ts';
-import { Editor } from './ui/Editor.tsx';
-import { Palette } from './ui/Palette.tsx';
-import { Properties } from './ui/Properties.tsx';
-import { AlertIcon } from './ui/icons.tsx';
+import { flushPending, onSaveError, scheduleSave } from './store/workspaces.ts';
+import { AlertIcon, CloseIcon } from './ui/icons.tsx';
 import { Toolbar } from './ui/Toolbar.tsx';
 
+/** Saves whichever workspace is active; pending changes are flushed before switching or leaving. */
 function useAutosave() {
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    onSaveError((message) => useStore.getState().setNotice(message));
     const unsubscribe = useStore.subscribe((s, prev) => {
-      if (s.graph === prev.graph) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => saveDocument({ graph: s.graph }), 400);
+      if (s.workspace !== prev.workspace) return;
+      if (s.graph === prev.graph && s.workload === prev.workload) return;
+      scheduleSave(s.workspace, { graph: s.graph, workload: s.workload });
     });
+    const flush = () => flushPending();
+    window.addEventListener('pagehide', flush);
     return () => {
       unsubscribe();
-      clearTimeout(timer);
+      window.removeEventListener('pagehide', flush);
+      flushPending();
     };
   }, []);
 }
 
-function useShortcuts() {
+function useShortcuts(enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
@@ -42,7 +49,7 @@ function useShortcuts() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [enabled]);
 }
 
 function useTheme() {
@@ -68,44 +75,45 @@ function useTheme() {
   return [isDark, () => setIsDark((current) => !current)] as const;
 }
 
-function Checks() {
-  const graph = useStore((s) => s.graph);
-  const issues = validateGraph(graph);
-  if (issues.length === 0) return null;
+function LoadWarnings() {
+  const warnings = useLearning((s) => s.warnings);
+  const dismiss = useLearning((s) => s.dismissWarnings);
+  if (warnings.length === 0) return null;
   return (
-    <section className="card">
-      <h2 className="card-title">Checks</h2>
-      <ul className="m-0 list-none space-y-1.5 p-0">
-        {issues.map((i, k) => (
-          <li key={k} className="warn">
-            <AlertIcon size={14} className="mt-px shrink-0" />
-            {i.message}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <div className="border-b border-line bg-panel px-4 py-2" role="alert">
+      <div className="warn">
+        <AlertIcon size={14} className="mt-px shrink-0" />
+        <ul className="m-0 flex-1 list-none space-y-0.5 p-0">
+          {warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+        <button type="button" className="rounded p-0.5 hover:opacity-70" onClick={dismiss} aria-label="Dismiss warnings">
+          <CloseIcon size={14} />
+        </button>
+      </div>
+    </div>
   );
 }
 
+function Page({ route }: { route: Route }) {
+  if (route.page === 'lessons') return route.id ? <LessonPage id={route.id} /> : <LessonsPage />;
+  if (route.page === 'challenges') return route.id ? <ChallengePage id={route.id} /> : <ChallengesPage />;
+  return <PlaygroundPage />;
+}
+
 export default function App() {
+  const [route] = useRoute();
   useAutosave();
-  useShortcuts();
+  useShortcuts(route.page === 'playground' || route.id !== undefined);
   const [isDark, toggleTheme] = useTheme();
 
   return (
     <ReactFlowProvider>
-      <div className="grid h-screen grid-cols-[220px_minmax(0,1fr)_260px] grid-rows-[auto_minmax(0,1fr)] font-sans lg:grid-cols-[260px_minmax(0,1fr)_320px]">
-        <Toolbar isDark={isDark} onToggleTheme={toggleTheme} />
-        <aside className="flex flex-col gap-3 overflow-y-auto border-r border-line bg-panel p-4">
-          <Palette />
-        </aside>
-        <main className="relative min-h-0 min-w-0">
-          <Editor />
-        </main>
-        <aside className="flex flex-col gap-3 overflow-y-auto border-l border-line bg-panel p-4">
-          <Properties />
-          <Checks />
-        </aside>
+      <div className="flex h-screen flex-col font-sans">
+        <Toolbar isDark={isDark} onToggleTheme={toggleTheme} route={route} />
+        <LoadWarnings />
+        <Page route={route} />
       </div>
     </ReactFlowProvider>
   );

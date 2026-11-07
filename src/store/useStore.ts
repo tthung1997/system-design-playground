@@ -1,12 +1,16 @@
 import { create } from 'zustand';
-import { createNode, NODE_SPECS } from '../model/defaults.ts';
+import type { WorkspaceSnapshot } from '../learning/data.ts';
+import { createNode, CONFIG_FIELDS, DEFAULT_WORKLOAD, MAX_REPLICAS, NODE_SPECS, SIZE_TIERS, workloadError } from '../model/defaults.ts';
 import type { PlaygroundDocument } from '../model/document.ts';
 import { getPreset, PRESETS } from '../model/presets.ts';
-import type { Graph, GraphNode, NodeKind, NodeProperty, Position } from '../model/types.ts';
+import type { Graph, GraphNode, NodeConfig, NodeKind, NodeProperty, Position, Workload } from '../model/types.ts';
+import { flushPending, loadWorkspace, markBaseline, PLAYGROUND, saveIfChanged } from './workspaces.ts';
+import type { WorkspaceKey } from './workspaces.ts';
 import { loadSavedDocument } from './storage.ts';
 
 interface Snapshot {
   graph: Graph;
+  workload: Workload;
 }
 
 const HISTORY_LIMIT = 100;
@@ -22,9 +26,13 @@ export interface PlaygroundState extends Snapshot {
   /** Incremented when a whole document is loaded, so the canvas can refit its viewport. */
   docVersion: number;
   notice: string | null;
+  /** Which workspace (playground, a lesson or a challenge) the editor currently shows. */
+  workspace: WorkspaceKey;
 
   addNode: (kind: NodeKind, position: Position) => string;
   updateNode: (id: string, patch: { name?: string }) => void;
+  updateConfig: (id: string, patch: { [K in keyof NodeConfig]?: NodeConfig[K] | undefined }) => boolean;
+  setWorkload: (patch: Partial<Workload>) => boolean;
   addProperty: (id: string) => void;
   updateProperty: (id: string, index: number, patch: Partial<NodeProperty>) => void;
   removeProperty: (id: string, index: number) => void;
@@ -37,9 +45,14 @@ export interface PlaygroundState extends Snapshot {
   setSelection: (nodeIds: string[], edgeIds: string[]) => void;
   undo: () => void;
   redo: () => void;
-  loadDocument: (doc: Pick<PlaygroundDocument, 'graph'>) => void;
+  loadDocument: (doc: Pick<PlaygroundDocument, 'graph'> & { workload?: Workload }) => void;
   loadPreset: (id: string) => void;
   setNotice: (notice: string | null) => void;
+  /**
+   * Shows another workspace: saves the current one, then loads its saved draft (or `seed`).
+   * Selection and undo history never carry over between workspaces.
+   */
+  switchWorkspace: (key: WorkspaceKey, seed: WorkspaceSnapshot) => void;
 }
 
 function uniqueId(prefix: string, taken: Set<string>): string {
@@ -64,8 +77,11 @@ function reaches(graph: Graph, from: string, to: string): boolean {
   return false;
 }
 
-function initialGraph(): Graph {
-  return loadSavedDocument()?.graph ?? PRESETS[0]!.graph;
+function initialSnapshot(): Snapshot {
+  const doc = loadSavedDocument();
+  return doc
+    ? { graph: doc.graph, workload: doc.workload ?? DEFAULT_WORKLOAD }
+    : { graph: PRESETS[0]!.graph, workload: DEFAULT_WORKLOAD };
 }
 
 export const useStore = create<PlaygroundState>()((set, get) => {
@@ -74,25 +90,34 @@ export const useStore = create<PlaygroundState>()((set, get) => {
   /** Snapshot taken when a drag starts; only committed to history once a node actually moves. */
   let pendingMove: Snapshot | null = null;
 
-  /** Applies an edit and records undo history (coalescing rapid edits with the same key). */
-  const edit = (mutate: (graph: Graph) => Graph | null, key?: string, windowMs = COALESCE_MS) => {
-    const { graph, past } = get();
-    const next = mutate(graph);
-    if (!next) return;
+  const snap = (): Snapshot => ({ graph: get().graph, workload: get().workload });
+
+  /** Records undo history for a new snapshot (coalescing rapid edits with the same key). */
+  const commit = (next: Snapshot, key?: string, windowMs = COALESCE_MS) => {
+    const { past } = get();
+    const before = snap();
     pendingMove = null;
     const now = Date.now();
     const coalesce = key !== undefined && key === lastKey && now - lastTime < windowMs;
     lastKey = key ?? null;
     lastTime = now;
-    const nodeIds = new Set(next.nodes.map((n) => n.id));
-    const edgeIds = new Set(next.edges.map((e) => e.id));
+    const nodeIds = new Set(next.graph.nodes.map((n) => n.id));
+    const edgeIds = new Set(next.graph.edges.map((e) => e.id));
     set((s) => ({
-      graph: next,
-      past: coalesce ? past : [...past, { graph }].slice(-HISTORY_LIMIT),
+      graph: next.graph,
+      workload: next.workload,
+      past: coalesce ? past : [...past, before].slice(-HISTORY_LIMIT),
       future: [],
       selectedNodeIds: s.selectedNodeIds.filter((id) => nodeIds.has(id)),
       selectedEdgeIds: s.selectedEdgeIds.filter((id) => edgeIds.has(id)),
     }));
+  };
+
+  /** Applies a graph edit and records undo history. */
+  const edit = (mutate: (graph: Graph) => Graph | null, key?: string, windowMs = COALESCE_MS) => {
+    const next = mutate(get().graph);
+    if (!next) return;
+    commit({ graph: next, workload: get().workload }, key, windowMs);
   };
 
   const mapNode = (id: string, fn: (n: GraphNode) => GraphNode) => (graph: Graph) => ({
@@ -100,13 +125,14 @@ export const useStore = create<PlaygroundState>()((set, get) => {
     nodes: graph.nodes.map((n) => (n.id === id ? fn(n) : n)),
   });
 
-  const restore = (snap: Snapshot, past: Snapshot[], future: Snapshot[]) => {
-    const nodeIds = new Set(snap.graph.nodes.map((n) => n.id));
-    const edgeIds = new Set(snap.graph.edges.map((e) => e.id));
+  const restore = (target: Snapshot, past: Snapshot[], future: Snapshot[]) => {
+    const nodeIds = new Set(target.graph.nodes.map((n) => n.id));
+    const edgeIds = new Set(target.graph.edges.map((e) => e.id));
     lastKey = null;
     pendingMove = null;
     set((s) => ({
-      graph: snap.graph,
+      graph: target.graph,
+      workload: target.workload,
       past,
       future,
       selectedNodeIds: s.selectedNodeIds.filter((id) => nodeIds.has(id)),
@@ -115,13 +141,14 @@ export const useStore = create<PlaygroundState>()((set, get) => {
   };
 
   return {
-    graph: initialGraph(),
+    ...initialSnapshot(),
     past: [],
     future: [],
     selectedNodeIds: [],
     selectedEdgeIds: [],
     docVersion: 0,
     notice: null,
+    workspace: PLAYGROUND,
 
     addNode: (kind, position) => {
       const id = uniqueId(kind, new Set(get().graph.nodes.map((n) => n.id)));
@@ -134,6 +161,49 @@ export const useStore = create<PlaygroundState>()((set, get) => {
     },
 
     updateNode: (id, patch) => edit(mapNode(id, (n) => ({ ...n, ...patch })), `name:${id}`),
+
+    updateConfig: (id, patch) => {
+      const node = get().graph.nodes.find((n) => n.id === id);
+      if (!node) return false;
+      const fields = CONFIG_FIELDS[node.kind];
+      let problem: string | null = null;
+      if (patch.replicas !== undefined) {
+        if (!fields.replicas) problem = `${node.name} does not support replicas`;
+        else if (!Number.isInteger(patch.replicas) || patch.replicas < 1 || patch.replicas > MAX_REPLICAS) {
+          problem = `Replicas must be a whole number from 1 to ${MAX_REPLICAS}`;
+        }
+      }
+      if (patch.size !== undefined && (!fields.size || !SIZE_TIERS.includes(patch.size))) problem = `${node.name} does not support that size`;
+      if (problem) {
+        set({ notice: problem });
+        return false;
+      }
+      edit(
+        mapNode(id, (n) => {
+          const config: NodeConfig = { ...n.config };
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === undefined) delete config[k as keyof NodeConfig];
+            else (config as Record<string, unknown>)[k] = v;
+          }
+          const { config: _old, ...rest } = n;
+          void _old;
+          return Object.keys(config).length > 0 ? { ...rest, config } : rest;
+        }),
+        `config:${id}:${Object.keys(patch).join(',')}`,
+      );
+      return true;
+    },
+
+    setWorkload: (patch) => {
+      const next = { ...get().workload, ...patch };
+      const problem = workloadError(next);
+      if (problem) {
+        set({ notice: problem });
+        return false;
+      }
+      commit({ graph: get().graph, workload: next }, `workload:${Object.keys(patch).join(',')}`);
+      return true;
+    },
 
     addProperty: (id) =>
       edit(mapNode(id, (n) => ({ ...n, properties: [...n.properties, { key: '', value: '' }] }))),
@@ -166,7 +236,7 @@ export const useStore = create<PlaygroundState>()((set, get) => {
     },
 
     beginMove: () => {
-      pendingMove = { graph: get().graph };
+      pendingMove = snap();
     },
 
     removeNodes: (ids) => {
@@ -217,26 +287,27 @@ export const useStore = create<PlaygroundState>()((set, get) => {
     },
 
     undo: () => {
-      const { past, future, graph } = get();
+      const { past, future } = get();
       const prev = past[past.length - 1];
       if (!prev) return;
-      restore(prev, past.slice(0, -1), [{ graph }, ...future]);
+      restore(prev, past.slice(0, -1), [snap(), ...future]);
     },
 
     redo: () => {
-      const { past, future, graph } = get();
+      const { past, future } = get();
       const next = future[0];
       if (!next) return;
-      restore(next, [...past, { graph }], future.slice(1));
+      restore(next, [...past, snap()], future.slice(1));
     },
 
     loadDocument: (doc) => {
-      const { graph, past } = get();
+      const { past } = get();
       lastKey = null;
       pendingMove = null;
       set({
         graph: doc.graph,
-        past: [...past, { graph }].slice(-HISTORY_LIMIT),
+        workload: doc.workload ?? get().workload,
+        past: [...past, snap()].slice(-HISTORY_LIMIT),
         future: [],
         selectedNodeIds: [],
         selectedEdgeIds: [],
@@ -250,5 +321,26 @@ export const useStore = create<PlaygroundState>()((set, get) => {
     },
 
     setNotice: (notice) => set({ notice }),
+
+    switchWorkspace: (key, seed) => {
+      if (get().workspace === key) return;
+      flushPending();
+      const error = saveIfChanged(get().workspace, snap());
+      if (error) set({ notice: error });
+      const target = loadWorkspace(key) ?? seed;
+      markBaseline(key, target);
+      lastKey = null;
+      pendingMove = null;
+      set({
+        workspace: key,
+        graph: target.graph,
+        workload: target.workload,
+        past: [],
+        future: [],
+        selectedNodeIds: [],
+        selectedEdgeIds: [],
+        docVersion: get().docVersion + 1,
+      });
+    },
   };
 });
