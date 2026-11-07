@@ -31,5 +31,6 @@ npm run build      # typecheck + production build
 ## UI conventions
 
 - Styling uses Tailwind v4. Colors come from CSS variables in `src/index.css` (light/dark themes); use semantic utilities such as `bg-panel`, `border-line`, `text-muted` instead of per-theme `dark:` variants.
-- Component icons and per-kind colors live in `src/ui/icons.tsx` (`KIND_STYLES`); add new component kinds there and in `src/model/defaults.ts`.
+- Component icons and per-kind colors live in `src/ui/icons.tsx` (`KIND_STYLES`); add new component kinds there and in `src/model/defaults.ts` (including `CONFIG_FIELDS`) and `src/simulation/catalog.ts`.
+- Simulator capacities, costs and formulas live in `src/simulation/catalog.ts` and `simulate.ts`. Bump `SIM_VERSION` (or a challenge's `version`) when results change, so old submissions are never ranked against new rules.
 - Keep the animated traffic edges; do not disable them for `prefers-reduced-motion`.
